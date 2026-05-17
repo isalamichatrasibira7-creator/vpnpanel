@@ -1,0 +1,13 @@
+<?php
+require __DIR__.'/config.php'; require_login();
+$env=[]; $f=DATA_DIR.'/v2ray.env'; if(is_file($f)){ foreach(file($f,FILE_IGNORE_NEW_LINES|FILE_SKIP_EMPTY_LINES) as $line){ if(strpos($line,'=')!==false){[$k,$v]=explode('=',$line,2); $env[$k]=$v; } } }
+$port=(int)($env['V2_PORT']??cfgv('V2_PORT','4443')); $uuid=$env['V2_UUID']??''; $host=$env['SERVER_ADDR']??($_SERVER['SERVER_ADDR']??'SERVER_IP'); $link='vless://'.$uuid.'@'.$host.':'.$port.'?encryption=none&security=none&type=tcp#VPN-Panel-V2Ray'; $active=trim(shell_exec("ss -Htn state established '( sport = :$port )' 2>/dev/null | awk '{print \$5}' | cut -d: -f1 | sort -u | wc -l")); $manual="Address: {$host}\nPort: {$port}\nUUID: {$uuid}\nProtocol: VLESS\nNetwork: TCP\nSecurity: None\nEncryption: None"; render_header('V2Ray Panel'); ?>
+<div class="panel-banner"><div class="toolbar"><div><h2 class="section-title">V2Ray / Xray Live Panel</h2><div class="small"><span class="live-dot"></span> Port, active IP and config link auto-refresh every 5 seconds.</div></div><span id="v2SvcBadge" class="badge">LIVE</span></div></div>
+<div class="grid"><div class="card soft-card"><div class="muted">Port</div><div class="kpi" id="v2Port"><?=esc($port)?></div></div><div class="card soft-card"><div class="muted">Active IPs</div><div class="kpi" id="v2Active"><?=esc($active?:'0')?></div></div></div>
+<div class="card" style="margin-top:18px"><h2 class="section-title">V2Ray / Xray VLESS Link</h2><div class="copy-row"><div class="code" id="v2Link"><?=esc($link)?></div><button class="btn copy-btn" data-copy="<?=esc($link)?>" id="v2CopyLink" title="Copy VLESS link">📋</button></div></div>
+<div class="card" style="margin-top:18px"><h2 class="section-title">Manual config</h2><div class="copy-row"><div class="code" id="v2Manual"><?=esc($manual)?></div><button class="btn copy-btn" data-copy="<?=esc($manual)?>" id="v2CopyManual" title="Copy manual config">📋</button></div></div>
+<script>
+async function refreshV2Ray(){try{const r=await fetch('api_status.php?proto=v2ray&_='+Date.now(),{cache:'no-store'});const d=await r.json();if(!d.ok)return;document.getElementById('v2Port').textContent=d.port;document.getElementById('v2Active').textContent=d.active_ips||'0';document.getElementById('v2Link').textContent=d.link;document.getElementById('v2Manual').textContent=d.manual;document.getElementById('v2CopyLink').setAttribute('data-copy',d.link);document.getElementById('v2CopyManual').setAttribute('data-copy',d.manual);const b=document.getElementById('v2SvcBadge');b.className='badge '+(d.running?'green':'red');b.textContent=d.running?'RUNNING':'STOPPED';}catch(e){}}
+refreshV2Ray();setInterval(refreshV2Ray,5000);
+</script>
+<?php render_footer(); ?>
